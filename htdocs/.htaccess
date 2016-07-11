@@ -1,3 +1,6 @@
+SetEnv INCLUDE_PATH /srv/statedecoded/includes/
+SetEnv EDITION_ID 2
+
 # Specify our error pages.
 ErrorDocument 404 /404.php
 
