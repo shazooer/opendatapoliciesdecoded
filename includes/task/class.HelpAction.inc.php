@@ -13,12 +13,14 @@ class HelpAction extends CliAction
 
 		if(isset($args[0]))
 		{
-			return $this->showHelp($args);
+			$return_data = $this->showHelp($args);
 		}
 		else
 		{
-			return $this->showDefaultHelp();
+			$return_data = $this->showDefaultHelp();
 		}
+
+		return $this->formatOutput($return_data);
 	}
 
 	public function showDefaultHelp()
@@ -89,7 +91,7 @@ EOS;
 		{
 			list($obj, $file) = $action_info;
 		}
-		if($obj)
+		if(isset($obj))
 		{
 			require_once($file);
 			return $obj::getHelp();

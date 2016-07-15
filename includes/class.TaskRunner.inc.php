@@ -19,7 +19,15 @@
 
 class TaskRunner
 {
+	/*
+	 * Our main options.
+	 */
 	public $options = array();
+
+	/*
+	 * The currently executing action.
+	 */
+	public $action;
 
 	public static function parseActionInfo($action)
 	{
@@ -78,15 +86,17 @@ class TaskRunner
 			$args = array();
 		}
 
+		$this->action = $action;
+
 		require_once($file);
 
-		$action = new $obj(
+		print $this->preFormat();
+
+		$action_object = new $obj(
 			array('options' => &$this->options)
 		);
 
-		// Give a reference to command line options.
-
-		return $this->format( $action->execute($args) );
+		print $this->postFormat( $action_object->execute($args) );
 	}
 
 	protected function parseExecArgs(&$exec_args)
@@ -126,12 +136,33 @@ class TaskRunner
 	}
 
 	/*
-	 * Sets the output format.  Matches the command line switch -format=NAME
+	 * Runs at the beginning of output. Matches the command line switch --format=NAME
 	 */
-	protected function format($text)
+	protected function preFormat()
 	{
 		$format = '';
-		if(isset($this->options['format']))
+		if(isset($this->options['format']) && is_string($this->options['format']))
+		{
+			$format = $this->options['format'];
+		}
+
+		switch($format)
+		{
+			case 'html' :
+				return $this->preFormatHtml($text);
+
+			default :
+				return;
+		}
+	}
+
+	/*
+	 * Runs at the end of output. Matches the command line switch --format=NAME
+	 */
+	protected function postFormat($text)
+	{
+		$format = '';
+		if(isset($this->options['format']) && is_string($this->options['format']))
 		{
 			$format = $this->options['format'];
 		}
@@ -141,6 +172,9 @@ class TaskRunner
 			case 'cow' :
 			case 'cowsay' :
 				return $this->formatCow($text);
+
+			case 'html' :
+				return $this->postFormatHtml($text);
 
 			case 'text' :
 			default :
@@ -169,5 +203,18 @@ class TaskRunner
 			return "cowsay is not installed.\n\n" .
 				$this->formatText($text);
 		}
+	}
+
+	protected function preFormatHtml()
+	{
+		return '<html><head><title>statedecoded - ' .
+			$this->action .
+			'</title></head><body>';
+	}
+
+	protected function postFormatHtml($text)
+	{
+		return $text .
+			'</body></html>';
 	}
 }

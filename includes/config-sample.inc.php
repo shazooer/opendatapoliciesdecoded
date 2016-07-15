@@ -91,6 +91,11 @@ define('WEB_ROOT', $_SERVER['DOCUMENT_ROOT'] ? $_SERVER['DOCUMENT_ROOT'] : dirna
 define('IMPORT_DATA_DIR', WEB_ROOT . '/admin/import-data/');
 
 /*
+ * Set the amount of memory allowed to use for importing data.
+ */
+define('IMPORT_MEMORY_LIMIT', '128M');
+
+/*
  * The file in the /includes/ directory that contains functions custom to this installation.
  */
 define('CUSTOM_FUNCTIONS', 'class.State-sample.inc.php');
@@ -104,7 +109,7 @@ define('THEMES_DIR', WEB_ROOT . '/themes/');
  * Which theme to use.
  */
 define('THEME_NAME', 'StateDecoded2013');
-define('THEME_DIR', TEMPLATE_DIR . THEME_NAME . '/');
+define('THEME_DIR', THEMES_DIR . THEME_NAME . '/');
 define('THEME_WEB_PATH', '/themes/' . THEME_NAME . '/');
 
 /*
@@ -307,4 +312,3 @@ define('DEBUG_LEVEL', 5);
 // define('DATA_REMOTE_PASSWORD', '');
 // define('DATA_REMOTE_HOST', '');
 // define('DATA_REMOTE_PATH', '');
->>>>>>> edition-update

@@ -154,7 +154,7 @@ class State
 		}
 
 		// Assemble the URL for our query to the CourtListener API.
-		$url = 'https://www.courtlistener.com/api/rest/v1/search/?q="'
+		$url = 'https://www.courtlistener.com/api/rest/v3/search/?q="'
 			. urlencode($this->section_number) . '"&court=ca4,vaeb,vawb,vaed,vawd,va,vactapp'
 			. '&order_by=score+desc&format=json';
 
@@ -187,7 +187,7 @@ class State
 
 		// If no results were found, save an empty variable. In this way we cache a lack of court
 		// decisions that cite a given section.
-		if ($cl_list->meta->total_count == 0)
+		if ($cl_list->count === 0)
 		{
 
 			$this->decisions = '';
@@ -203,7 +203,7 @@ class State
 
 			// Iterate through the decisions and assign the first 10 to $this->decisions.
 			$i=0;
-			foreach ($cl_list->objects as $opinion)
+			foreach ($cl_list->results as $opinion)
 			{
 
 				if ($i == 10)
@@ -214,15 +214,15 @@ class State
 				// Port the fields that we need from $opinion to $this->decisions.
 				if (html_entity_decode(strlen(strip_tags($opinion->case_name))) > 60)
 				{
-					$this->decisions->{$i}->name = ' . . . ' . array_shift(explode("\n", wordwrap(html_entity_decode(strip_tags($opinion->case_name)), 60))) . ' . . . ';
+					$this->decisions->{$i}->name = ' . . . ' . array_shift(explode("\n", wordwrap(html_entity_decode(strip_tags($opinion->caseName)), 60))) . ' . . . ';
 				}
 				else
 				{
-					$this->decisions->{$i}->name = html_entity_decode(strip_tags($opinion->case_name));
+					$this->decisions->{$i}->name = html_entity_decode(strip_tags($opinion->caseName));
 				}
-				$this->decisions->{$i}->case_number = $opinion->case_number;
-				$this->decisions->{$i}->citation = $opinion->citation;
-				$this->decisions->{$i}->date = date('Y-m-d', strtotime($opinion->date_filed));
+				$this->decisions->{$i}->case_number = $opinion->docketNumber;
+				$this->decisions->{$i}->citation = $opinion->citation[0];
+				$this->decisions->{$i}->date = date('Y-m-d', strtotime($opinion->dateFiled));
 				$this->decisions->{$i}->url = 'https://www.courtlistener.com' . $opinion->absolute_url;
 				$this->decisions->{$i}->abstract = ' . . . ' . array_shift(explode("\n", wordwrap(html_entity_decode(strip_tags($opinion->snippet)), 100))) . ' . . . ';
 
@@ -558,6 +558,10 @@ class Parser
 		foreach ($this->section->structure->unit as $unit)
 		{
 			$level = (string) $unit['level'];
+			if(!isset($this->code->structure))
+			{
+				$this->code->structure = new stdClass();
+			}
 			if(!isset($this->code->structure->{$level}))
 			{
 				$this->code->structure->{$level} = new stdClass();
@@ -584,6 +588,10 @@ class Parser
 			 */
 			if (count($section) === 0)
 			{
+				if(!isset($this->code->section))
+				{
+					$this->code->section = new stdClass();
+				}
 				if(!isset($this->code->section->{$this->i}))
 				{
 					$this->code->section->{$this->i} = new stdClass();
@@ -598,6 +606,11 @@ class Parser
 			 */
 			foreach ($section as $subsection)
 			{
+
+				if(!isset($this->code->section))
+				{
+					$this->code->section = new stdClass();
+				}
 				if(!isset($this->code->section->{$this->i}))
 				{
 					$this->code->section->{$this->i} = new stdClass();
@@ -1140,29 +1153,44 @@ class Parser
 			)
 		);
 
-		foreach ($this->code->structure as $struct)
+		if(isset($this->code->structure))
 		{
 
-			$structure->identifier = $struct->identifier;
-			$structure->name = $struct->name;
-			$structure->label = $struct->label;
-			$structure->level = $struct->level;
-			$structure->metadata = $struct->metadata;
-
-			/* If we've gone through this loop already, then we have a parent ID. */
-			if (isset($this->code->structure_id))
+			foreach ($this->code->structure as $struct)
 			{
-				$structure->parent_id = $this->code->structure_id;
+
+				$structure->identifier = $struct->identifier;
+				$structure->name = $struct->name;
+				$structure->label = $struct->label;
+				$structure->level = $struct->level;
+				if(isset($struct->metadata))
+				{
+					$structure->metadata = $struct->metadata;
+				}
+				else
+				{
+					$structure->metadata = '';
+				}
+
+				/* If we've gone through this loop already, then we have a parent ID. */
+				if (isset($this->code->structure_id))
+				{
+					$structure->parent_id = $this->code->structure_id;
+				}
+				$this->code->structure_id = $structure->create_structure();
+
 			}
-			$this->code->structure_id = $structure->create_structure();
 
+			/*
+			 * When that loop is finished, because structural units are ordered from most general to
+			 * most specific, we're left with the section's parent ID. Preserve it.
+			 */
+			$query['structure_id'] = $this->code->structure_id;
 		}
-
-		/*
-		 * When that loop is finished, because structural units are ordered from most general to
-		 * most specific, we're left with the section's parent ID. Preserve it.
-		 */
-		$query['structure_id'] = $this->code->structure_id;
+		else
+		{
+			$this->logger->error('ERROR Section without structure found: '. print_r($this->code, TRUE), 10);
+		}
 
 		/*
 		 * Build up an array of field names and values, using the names of the database columns as
@@ -1435,10 +1463,10 @@ class Parser
 		}
 		$ancestry = implode(',', $ancestry);
 		$ancestry_section = $ancestry . ','.$this->code->section_number;
-		if 	(
-				(GLOBAL_DEFINITIONS === $ancestry)
+		if (defined('GLOBAL_DEFINITIONS') &&
+				(GLOBAL_DEFINITIONS === $ancestry
 				||
-				(GLOBAL_DEFINITIONS === $ancestry_section)
+				GLOBAL_DEFINITIONS === $ancestry_section)
 			)
 		{
 			$definitions->scope = 'global';
